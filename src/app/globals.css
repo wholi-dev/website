@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.font-bold {
+  font-weight: 700;
+}
+
+input[type="text"] {
+  @apply bg-gray-200;
+}
