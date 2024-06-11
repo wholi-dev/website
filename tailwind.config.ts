@@ -8,8 +8,13 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        title: ["Beth Ellen", "cursive"],
+        body: ["Poppins", "sans-serif"],
+      },
     },
   },
   plugins: [],
 };
+
 export default config;

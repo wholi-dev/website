@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
 import "./globals.css";
-
-const poppins = Poppins({ subsets: ["latin"], weight: ['400', '700']});
 
 export const metadata: Metadata = {
   title: "Wholi",
@@ -16,7 +13,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={poppins.className}>{children}</body>
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Beth+Ellen&display=swap" rel="stylesheet"></link>
+      </head>
+      <body className="font-body">{children}</body>
     </html>
   );
 }
