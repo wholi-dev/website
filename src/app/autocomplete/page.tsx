@@ -18,16 +18,71 @@ export default function AddressValidationPage() {
     state: '',
     zipCode: '',
   });
-  const [userInput, setUserInput] = useState({
-    street: '',
-    aptSuite: '',
-    city: '',
-    state: '',
-    zipCode: '',
-  });
+
   const [validationResult, setValidationResult] = useState<any>(null);
   const [submissionCount, setSubmissionCount] = useState(1);
   const [showSelectionPage, setShowSelectionPage] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<'user' | 'api'>('api');
+
+  interface ExtractedAddress {
+    street: string;
+    aptSuite: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  }
+
+  interface AddressComponent {
+    componentName: {
+      text: string;
+      languageCode?: string;
+    };
+    componentType: string;
+    confirmationLevel: string;
+  }
+  
+  const extractAddressComponents = (validatedAddress: any): ExtractedAddress => {
+    const components = validatedAddress.addressComponents as AddressComponent[];
+    let street = '';
+    let aptSuite = '';
+    let city = '';
+    let state = '';
+    let zipCode = '';
+  
+    components.forEach((component: AddressComponent) => {
+      switch (component.componentType) {
+        case 'street_number':
+          street = component.componentName.text + ' ';
+          break;
+        case 'route':
+          street += component.componentName.text;
+          break;
+        case 'subpremise':
+          aptSuite = component.componentName.text;
+          break;
+        case 'locality':
+          city = component.componentName.text;
+          break;
+        case 'administrative_area_level_1':
+          state = component.componentName.text;
+          break;
+        case 'postal_code':
+          zipCode = component.componentName.text;
+          break;
+        case 'postal_code_suffix':
+          zipCode += '-' + component.componentName.text;
+          break;
+      }
+    });
+  
+    return {
+      street: street.trim(),
+      aptSuite,
+      city,
+      state,
+      zipCode,
+    };
+  };
 
   const handleAddressValidation = async () => {
     try {
@@ -49,26 +104,25 @@ export default function AddressValidationPage() {
           },
         }
       );
-
+  
       setValidationResult(response.data.result);
       handleFormValidation(response.data.result);
-
-      const { verdict } = response.data.result;
+  
+      const { verdict, address: validatedAddress } = response.data.result;
       const { validationGranularity } = verdict;
 
-      const { address: validatedAddress } = response.data.result;
-
-      const userFormattedAddress = `${userInput.street} ${userInput.aptSuite}, ${userInput.city}, ${userInput.state} ${userInput.zipCode}, USA`.toLowerCase();
-      const validatedFormattedAddress = validatedAddress.formattedAddress.toLowerCase();
+      const extractedAddress = extractAddressComponents(validatedAddress);
+    
+      const userFormattedAddress = `${address.street}${address.aptSuite ? ' ' + address.aptSuite : ''}, ${address.city}, ${address.state} ${address.zipCode}, USA`;
+      const validatedFormattedAddress = `${extractedAddress.street}${extractedAddress.aptSuite ? ' ' + extractedAddress.aptSuite : ''}, ${extractedAddress.city}, ${extractedAddress.state} ${extractedAddress.zipCode}, USA`;
     
       console.log('User Formatted Address:', userFormattedAddress);
       console.log('Validated Formatted Address:', validatedFormattedAddress);
     
-      const hasDifferences = userFormattedAddress !== validatedFormattedAddress;
+      const hasDifferences = userFormattedAddress.toLowerCase() !== validatedFormattedAddress.toLowerCase();
     
       setShowSelectionPage(hasDifferences);
-
-      console.log(submissionCount, validationGranularity)
+  
       if (submissionCount >= 1 && validationGranularity !== 'OTHER') {
         console.log('Congratulations! The address is valid.');
       } else if (submissionCount >= 2 && validationGranularity === 'OTHER') {
@@ -131,10 +185,6 @@ export default function AddressValidationPage() {
       ...prevAddress,
       [name]: value,
     }));
-    setUserInput((prevUserInput) => ({
-      ...prevUserInput,
-      [name]: value,
-    }));
   };
 
   const handleFormSubmit = () => {
@@ -155,51 +205,112 @@ export default function AddressValidationPage() {
     handleAddressValidation();
   };
 
-  const handleUserChoice = (choice: 'user' | 'api') => {
-    if (choice === 'user') {
-      setAddress(userInput);
-    } else {
-      setAddress(validationResult.address);
-    }
+  const handleEditValidatedAddress = () => {
+    const validatedAddress = validationResult.address;
+    const extractedAddress = extractAddressComponents(validatedAddress);
+    
+    setAddress(extractedAddress);
+    setSelectedAddress('api');
     setShowSelectionPage(false);
+  };
+
+  const handleSaveAddress = () => {
+    if (selectedAddress === 'user') {
+      console.log('Saving user input address:', address);
+    } else {
+      console.log('Saving validated address:', validationResult.address.formattedAddress);
+    }
+    // Here you would typically send the selected address to your backend or perform any other necessary actions
+    // After saving, you might want to navigate to another page or show a success message
+  };
+
+  
+  interface HighlightedAddressProps {
+    userAddress: string;
+    validatedAddress: string;
+  }
+  
+  const HighlightedAddress: React.FC<HighlightedAddressProps> = ({ userAddress, validatedAddress }) => {
+    const userWords = userAddress.split(' ');
+    const validatedWords = validatedAddress.split(' ');
+  
+    return (
+      <p>
+        {validatedWords.map((word, index) => {
+          const isHighlighted = word.toLowerCase() !== userWords[index]?.toLowerCase();
+          return (
+            <span key={index} className={isHighlighted ? 'highlight-diff' : ''}>
+              {word}{' '}
+            </span>
+          );
+        })}
+      </p>
+    );
   };
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white rounded-lg shadow-md">
     <h1 className="text-2xl font-bold mb-6">Address Validation Form</h1>
     {showSelectionPage ? (
-      <div>
+        <div>
         <h2 className="text-xl font-bold mb-4">Select Address</h2>
         <div className="mb-6">
-          <p className="font-medium mb-2">Your Input:</p>
-          <p>Placeholder User address</p>
+          <div className="flex items-center mb-2">
+            <input
+              type="radio"
+              id="userAddress"
+              name="addressChoice"
+              value="user"
+              checked={selectedAddress === 'user'}
+              onChange={() => setSelectedAddress('user')}
+              className="mr-2"
+            />
+            <label htmlFor="userAddress" className="font-medium">Your Input:</label>
+          </div>
+          <p>{address.street}{address.aptSuite ? ' ' + address.aptSuite : ''}, {address.city}, {address.state} {address.zipCode}, USA</p>
+          {selectedAddress === 'user' && (
+            <button
+              type="button"
+              onClick={() => setShowSelectionPage(false)}
+              className="mt-2 text-blue-500 underline hover:text-blue-700 focus:outline-none"
+            >
+              Edit this address
+            </button>
+          )}
         </div>
         <div className="mb-6">
-          <p className="font-medium mb-2">Validated Address:</p>
-          <p>Placeholder Validated Address</p>
-        </div>
-        <div className="flex justify-between">
-          <button
-            type="button"
-            onClick={() => handleUserChoice('user')}
-            className="px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
-          >
-            Use Your Input
-          </button>
-          <button
-            type="button"
-            onClick={() => handleUserChoice('api')}
-            className="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600 focus:outline-none focus:bg-green-600"
-          >
-            Use Validated Address
-          </button>
+          <div className="flex items-center mb-2">
+            <input
+              type="radio"
+              id="validatedAddress"
+              name="addressChoice"
+              value="api"
+              checked={selectedAddress === 'api'}
+              onChange={() => setSelectedAddress('api')}
+              className="mr-2"
+            />
+            <label htmlFor="validatedAddress" className="font-medium">Recommended Address:</label>
+          </div>
+          <HighlightedAddress 
+            userAddress={`${address.street}${address.aptSuite ? ' ' + address.aptSuite : ''}, ${address.city}, ${address.state} ${address.zipCode}, USA`}
+            validatedAddress={validationResult.address.formattedAddress}
+          />
+          {selectedAddress === 'api' && (
+            <button
+              type="button"
+              onClick={() => handleEditValidatedAddress()}
+              className="mt-2 text-blue-500 underline hover:text-blue-700 focus:outline-none"
+            >
+              Edit this address
+            </button>
+          )}
         </div>
         <button
           type="button"
-          onClick={() => setShowSelectionPage(false)}
-          className="mt-4 text-blue-500 underline hover:text-blue-700 focus:outline-none"
+          onClick={handleSaveAddress}
+          className="w-full px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600 focus:outline-none focus:bg-green-600"
         >
-          Edit Your Input
+          Save Address
         </button>
       </div>
     ) : (

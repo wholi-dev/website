@@ -28,3 +28,8 @@
 .err-msg {
   @apply text-red-500 mt-1;
 }
+
+.highlight-diff {
+  background-color: #ffff00;
+  font-weight: bold;
+}
