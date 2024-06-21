@@ -4,87 +4,104 @@ import { googleMapsApiKey } from '../../lib/googleMapsClient';
 import { useState } from 'react';
 import { error } from 'console';
 
-export default function AddressValidationPage() {
-  const [address, setAddress] = useState({
-    street: '',
-    aptSuite: '',
-    city: '',
-    state: '',
-    zipCode: '',
-  });
-  const [errorFields, setErrorFields] = useState({
-    street: '',
-    city: '',
-    state: '',
-    zipCode: '',
-  });
+interface AddressObject {
+  street: string;
+  aptSuite?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
 
-  const [validationResult, setValidationResult] = useState<any>(null);
-  const [submissionCount, setSubmissionCount] = useState(1);
-  const [showSelectionPage, setShowSelectionPage] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<'user' | 'api'>('api');
+interface ErrorFields {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
 
-  interface ExtractedAddress {
-    street: string;
-    aptSuite: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  }
-
-  interface AddressComponent {
-    componentName: {
-      text: string;
-      languageCode?: string;
-    };
-    componentType: string;
-    confirmationLevel: string;
-  }
-  
-  const extractAddressComponents = (validatedAddress: any): ExtractedAddress => {
-    const components = validatedAddress.addressComponents as AddressComponent[];
-    let street = '';
-    let aptSuite = '';
-    let city = '';
-    let state = '';
-    let zipCode = '';
-  
-    components.forEach((component: AddressComponent) => {
-      switch (component.componentType) {
-        case 'street_number':
-          street = component.componentName.text + ' ';
-          break;
-        case 'route':
-          street += component.componentName.text;
-          break;
-        case 'subpremise':
-          aptSuite = component.componentName.text;
-          break;
-        case 'locality':
-          city = component.componentName.text;
-          break;
-        case 'administrative_area_level_1':
-          state = component.componentName.text;
-          break;
-        case 'postal_code':
-          zipCode = component.componentName.text;
-          break;
-        case 'postal_code_suffix':
-          zipCode += '-' + component.componentName.text;
-          break;
-      }
-    });
-  
-    return {
-      street: street.trim(),
-      aptSuite,
-      city,
-      state,
-      zipCode,
-    };
+interface AddressComponent {
+  componentName: {
+    text: string;
+    languageCode?: string;
   };
+  componentType: string;
+  confirmationLevel: string;
+}
 
-  const handleAddressValidation = async () => {
+interface ValidationResult {
+  verdict: {
+    validationGranularity: string;
+  };
+  address: {
+    formattedAddress: string;
+    addressComponents: AddressComponent[];
+  };
+}
+
+const extractAddressComponents = (validatedAddress: any): AddressObject => {
+  const components = validatedAddress.addressComponents as AddressComponent[];
+  let street = '';
+  let aptSuite = '';
+  let city = '';
+  let state = '';
+  let zipCode = '';
+
+  components.forEach((component: AddressComponent) => {
+    switch (component.componentType) {
+      case 'street_number':
+        street = component.componentName.text + ' ';
+        break;
+      case 'route':
+        street += component.componentName.text;
+        break;
+      case 'subpremise':
+        aptSuite = component.componentName.text;
+        break;
+      case 'locality':
+        city = component.componentName.text;
+        break;
+      case 'administrative_area_level_1':
+        state = component.componentName.text;
+        break;
+      case 'postal_code':
+        zipCode = component.componentName.text;
+        break;
+      case 'postal_code_suffix':
+        zipCode += '-' + component.componentName.text;
+        break;
+    }
+  });
+
+  return {
+    street: street.trim(),
+    aptSuite,
+    city,
+    state,
+    zipCode,
+  };
+};
+
+const compareAddresses = (address1: AddressObject, address2: AddressObject): boolean => {
+  const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, ' ').trim();
+
+  return (
+    normalize(address1.street) === normalize(address2.street) &&
+    normalize(address1.aptSuite || '') === normalize(address2.aptSuite || '') &&
+    normalize(address1.city) === normalize(address2.city) &&
+    normalize(address1.state) === normalize(address2.state) &&
+    normalize(address1.zipCode) === normalize(address2.zipCode)
+  );
+};
+
+
+function useAddressValidation() {
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const validateAddress = async (address: AddressObject) => {
+    setIsValidating(true);
+    setError(null);
     try {
       const response = await axios.post(
         `https://addressvalidation.googleapis.com/v1:validateAddress?key=${googleMapsApiKey}`,
@@ -104,35 +121,66 @@ export default function AddressValidationPage() {
           },
         }
       );
-  
       setValidationResult(response.data.result);
-      handleFormValidation(response.data.result);
-  
-      const { verdict, address: validatedAddress } = response.data.result;
-      const { validationGranularity } = verdict;
-
-      const extractedAddress = extractAddressComponents(validatedAddress);
-    
-      const userFormattedAddress = `${address.street}${address.aptSuite ? ' ' + address.aptSuite : ''}, ${address.city}, ${address.state} ${address.zipCode}, USA`;
-      const validatedFormattedAddress = `${extractedAddress.street}${extractedAddress.aptSuite ? ' ' + extractedAddress.aptSuite : ''}, ${extractedAddress.city}, ${extractedAddress.state} ${extractedAddress.zipCode}, USA`;
-    
-      console.log('User Formatted Address:', userFormattedAddress);
-      console.log('Validated Formatted Address:', validatedFormattedAddress);
-    
-      const hasDifferences = userFormattedAddress.toLowerCase() !== validatedFormattedAddress.toLowerCase();
-    
-      setShowSelectionPage(hasDifferences);
-  
-      if (submissionCount >= 1 && validationGranularity !== 'OTHER') {
-        console.log('Congratulations! The address is valid.');
-      } else if (submissionCount >= 2 && validationGranularity === 'OTHER') {
-        console.log('Address is not in our postal records. Go back or continue anyway?');
-      }
-    } catch (error) {
-      console.error('Error validating address:', error);
+      return response.data.result;
+    } catch (err) {
+      setError('Error validating address');
+      console.error('Error validating address:', err);
+      return null;
+    } finally {
+      setIsValidating(false);
     }
   };
 
+  return { validationResult, isValidating, error, validateAddress };
+}
+
+interface HighlightedAddressProps {
+  userAddress: string;
+  validatedAddress: string;
+}
+
+const HighlightedAddress: React.FC<HighlightedAddressProps> = ({ userAddress, validatedAddress }) => {
+  const userWords = userAddress.split(' ');
+  const validatedWords = validatedAddress.split(' ');
+
+  return (
+    <p>
+      {validatedWords.map((word, index) => {
+        const isHighlighted = word.toLowerCase() !== userWords[index]?.toLowerCase();
+        return (
+          <span key={index} className={isHighlighted ? 'highlight-diff' : ''}>
+            {word}{' '}
+          </span>
+        );
+      })}
+    </p>
+  );
+};
+
+
+export default function AddressValidationPage() {
+  const [address, setAddress] = useState<AddressObject>({
+    street: '',
+    aptSuite: '',
+    city: '',
+    state: '',
+    zipCode: '',
+  });
+
+  const [errorFields, setErrorFields] = useState<ErrorFields>({
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
+  });
+
+  const [showSelectionPage, setShowSelectionPage] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<'user' | 'api'>('api');
+  const [previousSubmittedAddress, setPreviousSubmittedAddress] = useState<AddressObject | null>(null);
+
+  const { validationResult, isValidating, error, validateAddress } = useAddressValidation();
+  
   const handleFormValidation = (validationResult: any) => {
     const { verdict, address } = validationResult;
     const { validationGranularity } = verdict;
@@ -177,8 +225,11 @@ export default function AddressValidationPage() {
     }
 
     setErrorFields(updatedErrorFields);
-  };
 
+    // return true if there are any error fields
+    return Object.values(updatedErrorFields).some((error) => error !== '');
+  };
+  
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setAddress((prevAddress) => ({
@@ -187,65 +238,106 @@ export default function AddressValidationPage() {
     }));
   };
 
-  const handleFormSubmit = () => {
+  const handleFormSubmit = async () => {
+    // First, check if all required fields are filled
     const updatedErrorFields = {
       street: address.street.trim() === '' ? 'Please enter a street address.' : '',
       city: address.city.trim() === '' ? 'Please enter a city.' : '',
       state: address.state.trim() === '' ? 'Please enter a state.' : '',
       zipCode: address.zipCode.trim() === '' ? 'Please enter a zip code.' : '',
     };
-
+  
     setErrorFields(updatedErrorFields);
-
+  
     if (Object.values(updatedErrorFields).some((error) => error !== '')) {
       return;
     }
+  
+    // Validate the address
+    const result = await validateAddress(address);
+  
+    if (!result) {
+      console.error('Validation failed');
+      return;
+    }
+  
+    const hasErrors = handleFormValidation(result);
+    const {
+      verdict: { validationGranularity },
+      address: validatedAddress
+    } = result;
 
-    setSubmissionCount((prevCount) => prevCount + 1);
-    handleAddressValidation();
+    const addressRepeated = JSON.stringify(address) === JSON.stringify(previousSubmittedAddress);
+    // this line has to be called after. Might have to change for javascript weirdness
+    setPreviousSubmittedAddress(address);
+    const extractedValidatedAddress = extractAddressComponents(validatedAddress);
+    const hasAPIDifferences = !compareAddresses(address, extractedValidatedAddress);
+
+
+    if (addressRepeated) {
+      if (validationGranularity === 'OTHER') {
+        showNotInSystemWarning();
+        return;
+      }
+
+      if (hasAPIDifferences) {
+        setShowSelectionPage(true);
+        return;
+      }
+    
+      handleSaveAddress();
+      return;
+    }
+    // at this point, we have handled all cases where the address is repeated
+
+    if (hasErrors) {
+      return;
+    }
+
+    if (hasAPIDifferences) {
+      setShowSelectionPage(true);
+      return;
+    }
+
+    // the only case left is that the addres is good, and there are no errors
+    handleSaveAddress();
+    return;
+
+    //TODO when the user goes back to edit the address, the previous address should be set to ''
+    //TODO also edit the highlight function
   };
 
+  const showNotInSystemWarning = () => {
+    console.log('Warning! Address not found in the system');
+    // Here you might want to show a warning message to the user
+    // You could also provide an option to save the address as entered
+  }
+
   const handleEditValidatedAddress = () => {
-    const validatedAddress = validationResult.address;
-    const extractedAddress = extractAddressComponents(validatedAddress);
-    
-    setAddress(extractedAddress);
-    setSelectedAddress('api');
-    setShowSelectionPage(false);
+    if (validationResult) {
+      const validatedAddress = validationResult.address;
+      const extractedAddress = extractAddressComponents(validatedAddress);
+      
+      setAddress(extractedAddress);
+      setSelectedAddress('api');
+      setShowSelectionPage(false);
+    } else {
+      console.error('No validation result available');
+      // You might want to handle this case, perhaps by showing an error message to the user
+    }
   };
 
   const handleSaveAddress = () => {
     if (selectedAddress === 'user') {
       console.log('Saving user input address:', address);
-    } else {
+    } else if (validationResult) {
       console.log('Saving validated address:', validationResult.address.formattedAddress);
+    } else {
+      console.error('No validation result available');
+      // You might want to handle this case, perhaps by showing an error message to the user
     }
     // Here you would typically send the selected address to your backend or perform any other necessary actions
     // After saving, you might want to navigate to another page or show a success message
-  };
-
-  
-  interface HighlightedAddressProps {
-    userAddress: string;
-    validatedAddress: string;
-  }
-  
-  const HighlightedAddress: React.FC<HighlightedAddressProps> = ({ userAddress, validatedAddress }) => {
-    const userWords = userAddress.split(' ');
-    const validatedWords = validatedAddress.split(' ');
-  
-    return (
-      <p>
-        {validatedWords.map((word, index) => {
-          const isHighlighted = word.toLowerCase() !== userWords[index]?.toLowerCase();
-          return (
-            <span key={index} className={isHighlighted ? 'highlight-diff' : ''}>
-              {word}{' '}
-            </span>
-          );
-        })}
-      </p>
-    );
   };
 
   return (
@@ -293,7 +385,7 @@ export default function AddressValidationPage() {
           </div>
           <HighlightedAddress 
             userAddress={`${address.street}${address.aptSuite ? ' ' + address.aptSuite : ''}, ${address.city}, ${address.state} ${address.zipCode}, USA`}
-            validatedAddress={validationResult.address.formattedAddress}
+            validatedAddress={validationResult? validationResult.address.formattedAddress: ''}
           />
           {selectedAddress === 'api' && (
             <button
@@ -394,7 +486,7 @@ export default function AddressValidationPage() {
         onClick={handleFormSubmit}
         className="btn btn-primary w-full"
       >
-        Validate Address
+        Add Address
       </button>
     </form>
     {validationResult && (
