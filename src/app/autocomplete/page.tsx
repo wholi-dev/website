@@ -136,25 +136,48 @@ function useAddressValidation() {
 }
 
 interface HighlightedAddressProps {
-  userAddress: string;
-  validatedAddress: string;
+  userAddress: AddressObject;
+  validatedAddress: AddressObject;
 }
 
 const HighlightedAddress: React.FC<HighlightedAddressProps> = ({ userAddress, validatedAddress }) => {
-  const userWords = userAddress.split(' ');
-  const validatedWords = validatedAddress.split(' ');
+  const highlightDifferences = (str1: string, str2: string) => {
+    const words1 = str1.split(' ');
+    const words2 = str2.split(' ');
+    return (
+      <span>
+        {words2.map((word, index) => {
+          const isHighlighted = word.toLowerCase() !== words1[index]?.toLowerCase();
+          return (
+            <span key={index} className={isHighlighted ? 'highlight-diff' : ''}>
+              {word}
+              {index < words2.length - 1 ? ' ' : ''}
+            </span>
+          );
+        })}
+      </span>
+    );
+  };
 
   return (
-    <p>
-      {validatedWords.map((word, index) => {
-        const isHighlighted = word.toLowerCase() !== userWords[index]?.toLowerCase();
-        return (
-          <span key={index} className={isHighlighted ? 'highlight-diff' : ''}>
-            {word}{' '}
-          </span>
-        );
-      })}
-    </p>
+    <div>
+      <p>
+        {highlightDifferences(userAddress.street, validatedAddress.street)}
+        {(userAddress.aptSuite || validatedAddress.aptSuite) && (
+          <>
+            {' '}
+            {highlightDifferences(userAddress.aptSuite || '', validatedAddress.aptSuite || '')}
+          </>
+        )}
+        {', '}
+        {highlightDifferences(userAddress.city, validatedAddress.city)}
+        {', '}
+        {highlightDifferences(userAddress.state, validatedAddress.state)}
+        {' '}
+        {highlightDifferences(userAddress.zipCode, validatedAddress.zipCode)}
+        {', USA'}
+      </p>
+    </div>
   );
 };
 
@@ -225,9 +248,20 @@ export default function AddressValidationPage() {
     }
 
     setErrorFields(updatedErrorFields);
+    
+    const hasErrors = Object.values(updatedErrorFields).some((error) => error !== '');
+    // make sure there is an error if the granularity is OTHER
+    if (!hasErrors && validationGranularity === 'OTHER') {
+      updatedErrorFields.street = 'Please double-check the address.';
+      updatedErrorFields.city = 'Please double-check the address.';
+      updatedErrorFields.state = 'Please double-check the address.';
+      updatedErrorFields.zipCode = 'Please double-check the address.';
+      setErrorFields(updatedErrorFields);
+      return true;
+    }
 
     // return true if there are any error fields
-    return Object.values(updatedErrorFields).some((error) => error !== '');
+    return hasErrors;
   };
   
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,11 +333,11 @@ export default function AddressValidationPage() {
       return;
     }
 
-    // the only case left is that the addres is good, and there are no errors
+    // the only case left is that the address is good, and there are no errors
     handleSaveAddress();
     return;
 
-    //TODO when the user goes back to edit the address, the previous address should be set to ''
+    // make sure that hasError is true when the granularity is other
     //TODO also edit the highlight function
   };
 
@@ -383,10 +417,10 @@ export default function AddressValidationPage() {
             />
             <label htmlFor="validatedAddress" className="font-medium">Recommended Address:</label>
           </div>
-          <HighlightedAddress 
-            userAddress={`${address.street}${address.aptSuite ? ' ' + address.aptSuite : ''}, ${address.city}, ${address.state} ${address.zipCode}, USA`}
-            validatedAddress={validationResult? validationResult.address.formattedAddress: ''}
-          />
+          {validationResult? <HighlightedAddress 
+            userAddress={address}
+            validatedAddress={extractAddressComponents(validationResult.address)}
+          />: <p>We're Wholi sorry. There's been some error validating the address.</p>}
           {selectedAddress === 'api' && (
             <button
               type="button"
@@ -500,7 +534,3 @@ export default function AddressValidationPage() {
     </>
     )}
   </div>)};
-  
-  
-  
- 
