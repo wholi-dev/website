@@ -35,7 +35,7 @@ export const HighlightedAddress: React.FC<HighlightedAddressProps> = ({ userAddr
           {', '}
           {highlightDifferences(userAddress.state, validatedAddress.state)}
           {' '}
-          {highlightDifferences(userAddress.zipCode, validatedAddress.zipCode)}
+          {highlightDifferences(userAddress.zip, validatedAddress.zip)}
           {', USA'}
         </p>
       </div>

@@ -3,14 +3,14 @@ export interface AddressObject {
     aptSuite?: string;
     city: string;
     state: string;
-    zipCode: string;
+    zip: string;
   }
   
   export interface ErrorFields {
     street: string;
     city: string;
     state: string;
-    zipCode: string;
+    zip: string;
   }
   
   export interface AddressComponent {

@@ -19,7 +19,7 @@ const extractAddressComponents = (validatedAddress: any): AddressObject => {
   let aptSuite = '';
   let city = '';
   let state = '';
-  let zipCode = '';
+  let zip = '';
 
   components.forEach((component: AddressComponent) => {
     switch (component.componentType) {
@@ -39,10 +39,10 @@ const extractAddressComponents = (validatedAddress: any): AddressObject => {
         state = component.componentName.text;
         break;
       case 'postal_code':
-        zipCode = component.componentName.text;
+        zip = component.componentName.text;
         break;
       case 'postal_code_suffix':
-        zipCode += '-' + component.componentName.text;
+        zip += '-' + component.componentName.text;
         break;
     }
   });
@@ -52,7 +52,7 @@ const extractAddressComponents = (validatedAddress: any): AddressObject => {
     aptSuite,
     city,
     state,
-    zipCode,
+    zip,
   };
 };
 
@@ -64,7 +64,7 @@ const addressesAreEqual = (address1: AddressObject, address2: AddressObject): bo
     normalize(address1.aptSuite || '') === normalize(address2.aptSuite || '') &&
     normalize(address1.city) === normalize(address2.city) &&
     normalize(address1.state) === normalize(address2.state) &&
-    normalize(address1.zipCode) === normalize(address2.zipCode)
+    normalize(address1.zip) === normalize(address2.zip)
   );
 };
 
@@ -86,7 +86,7 @@ function useAddressValidation() {
             addressLines: [address.street, address.aptSuite].filter(Boolean),
             locality: address.city,
             administrativeArea: address.state,
-            postalCode: address.zipCode,
+            postalCode: address.zip,
           },
           enableUspsCass: true,
         },
@@ -120,14 +120,14 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
     aptSuite: '',
     city: '',
     state: '',
-    zipCode: '',
+    zip: '',
   });
 
   const [errorFields, setErrorFields] = useState<ErrorFields>({
     street: '',
     city: '',
     state: '',
-    zipCode: '',
+    zip: '',
   });
 
   const [showSelectionPage, setShowSelectionPage] = useState(false);
@@ -145,7 +145,7 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
       street: '',
       city: '',
       state: '',
-      zipCode: '',
+      zip: '',
     };
 
     addressComponents.forEach((component: any) => {
@@ -157,7 +157,7 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
         } else if (component.componentType === 'administrative_area_level_1') {
           updatedErrorFields.state = 'Please double-check the state.';
         } else if (component.componentType === 'postal_code') {
-          updatedErrorFields.zipCode = 'Please double-check the zip code.';
+          updatedErrorFields.zip = 'Please double-check the zip code.';
         }
       }
     });
@@ -171,7 +171,7 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
       } else if (componentType === 'administrative_area_level_1') {
         updatedErrorFields.state = 'Please double-check the state.';
       } else if (componentType === 'postal_code') {
-        updatedErrorFields.zipCode = 'Please double-check the zip code.';
+        updatedErrorFields.zip = 'Please double-check the zip code.';
       }
     });
     
@@ -187,7 +187,7 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
       updatedErrorFields.street = 'Address not found. Please double-check everything before saving.';
       updatedErrorFields.city = 'Please double-check the city.';
       updatedErrorFields.state = 'Please double-check the state.';
-      updatedErrorFields.zipCode = 'Please double-check the zip code.';
+      updatedErrorFields.zip = 'Please double-check the zip code.';
       setErrorFields(updatedErrorFields);
       return true;
     }
@@ -210,7 +210,7 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
       street: address.street.trim() === '' ? 'Please enter a street address.' : '',
       city: address.city.trim() === '' ? 'Please enter a city.' : '',
       state: address.state.trim() === '' ? 'Please enter a state.' : '',
-      zipCode: address.zipCode.trim() === '' ? 'Please enter a zip code.' : '',
+      zip: address.zip.trim() === '' ? 'Please enter a zip code.' : '',
     };
   
     setErrorFields(updatedErrorFields);
@@ -341,7 +341,7 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
           />
           <label htmlFor="userAddress" className="font-medium">Your Input:</label>
         </div>
-        <p>{address.street}{address.aptSuite ? ' ' + address.aptSuite : ''}, {address.city}, {address.state} {address.zipCode}, USA</p>
+        <p>{address.street}{address.aptSuite ? ' ' + address.aptSuite : ''}, {address.city}, {address.state} {address.zip}, USA</p>
         {selectedAddress === 'user' && (
           <button
             type="button"
@@ -466,19 +466,19 @@ export const AddressValidationForm: React.FC<AddressValidationFormProps> = ({
         {errorFields.state && <p className="err-msg">{errorFields.state}</p>}
       </div>
       <div className="mb-6">
-        <label htmlFor="zipCode" className="block mb-2 font-medium">
+        <label htmlFor="zip" className="block mb-2 font-medium">
           ZIP Code
         </label>
         <input
           type="text"
-          id="zipCode"
-          name="zipCode"
-          value={address.zipCode}
+          id="zip"
+          name="zip"
+          value={address.zip}
           onChange={handleAddressChange}
-          className={errorFields.zipCode ? 'inp inp-error' : 'inp'}
+          className={errorFields.zip ? 'inp inp-error' : 'inp'}
           required
         />
-        {errorFields.zipCode && <p className="err-msg">{errorFields.zipCode}</p>}
+        {errorFields.zip && <p className="err-msg">{errorFields.zip}</p>}
       </div>
       <button
         type="button"
